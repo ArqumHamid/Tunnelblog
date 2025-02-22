@@ -29,34 +29,47 @@
             analyser.connect(audioContext.destination);
         }
 
-        // 3D Tunnel (Like Tunnel Rush)
+        // 3D Tunnel (Moving Forward Effect)
         let scene = new THREE.Scene();
         let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         let renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        let tunnelMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
-        let tunnelGeometry = new THREE.CylinderGeometry(5, 5, 100, 32, 1, true);
-        let tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
-        scene.add(tunnel);
+        let tunnelMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
+        let tunnelSegments = [];
+
+        // Create multiple rings for a tunnel effect
+        for (let i = 0; i < 20; i++) {
+            let geometry = new THREE.TorusGeometry(5, 1, 16, 100);
+            let ring = new THREE.Mesh(geometry, tunnelMaterial);
+            ring.position.z = -i * 5;
+            scene.add(ring);
+            tunnelSegments.push(ring);
+        }
 
         camera.position.z = 5;
 
         function animate() {
             requestAnimationFrame(animate);
 
-            // Create high-speed tunnel rush effect
-            tunnel.rotation.z += 0.01;
-            tunnel.position.z -= 0.2;
+            // Move the tunnel illusion forward
+            tunnelSegments.forEach(ring => {
+                ring.position.z += 0.3; // Adjust speed here
+                if (ring.position.z > 5) {
+                    ring.position.z = -100; // Reset position for endless tunnel
+                }
+            });
 
             // Dynamic Visuals Based on Music
             if (analyser) {
                 let dataArray = new Uint8Array(analyser.frequencyBinCount);
                 analyser.getByteFrequencyData(dataArray);
                 let avgFreq = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-                tunnel.scale.x = tunnel.scale.y = 1 + (avgFreq * 0.002);
+
                 tunnelMaterial.color.setHSL(Math.random(), 1, 0.5);
+                camera.position.x = Math.sin(avgFreq * 0.01) * 2; // Slight side-to-side effect
+                camera.rotation.z = Math.cos(avgFreq * 0.01) * 0.1; // Rotate subtly
             }
 
             renderer.render(scene, camera);
