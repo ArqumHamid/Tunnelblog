@@ -6,21 +6,65 @@
     <title>Music Tunnel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: black; color: white; text-align: center; }
-        #controls { position: absolute; top: 10px; width: 100%; z-index: 10; }
-        input, button { margin: 5px; padding: 10px; }
+        body { margin: 0; overflow: hidden; background: black; }
     </style>
 </head>
 <body>
-    <div id="controls">
-        <input type="file" id="fileInput" multiple accept="audio/*">
-        <button onclick="playMusic()">Play</button>
-    </div>
     <script>
-        let audioContext, analyser, source, audioBuffer;
-        let fileQueue = [];
-        let isPlaying = false;
-        
+        let urlParams = new URLSearchParams(window.location.search);
+        let musicUrl = urlParams.get("music");
+        let audio, audioContext, analyser;
+
+        function startMusic() {
+            if (!musicUrl) return;
+            audio = new Audio(musicUrl);
+            audio.loop = true;
+            audio.play();
+
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            let source = audioContext.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+        }
+
+        // 3D Tunnel (Like Tunnel Rush)
+        let scene = new THREE.Scene();
+        let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        let renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        let tunnelMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
+        let tunnelGeometry = new THREE.CylinderGeometry(5, 5, 100, 32, 1, true);
+        let tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
+        scene.add(tunnel);
+
+        camera.position.z = 5;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Create high-speed tunnel rush effect
+            tunnel.rotation.z += 0.01;
+            tunnel.position.z -= 0.2;
+
+            // Dynamic Visuals Based on Music
+            if (analyser) {
+                let dataArray = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(dataArray);
+                let avgFreq = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+                tunnel.scale.x = tunnel.scale.y = 1 + (avgFreq * 0.002);
+                tunnelMaterial.color.setHSL(Math.random(), 1, 0.5);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        startMusic();
+        animate();
+
         // Prevent screen from sleeping
         let wakeLock = null;
         async function keepScreenAwake() {
@@ -32,91 +76,7 @@
                 }
             }
         }
-
-        // Handle file selection
-        document.getElementById("fileInput").addEventListener("change", function(event) {
-            fileQueue = Array.from(event.target.files);
-        });
-
-        function playMusic() {
-            if (fileQueue.length === 0) return alert("Please select at least one song!");
-
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256;
-            }
-
-            if (isPlaying) {
-                stopMusic();
-            }
-
-            playNextSong();
-            keepScreenAwake();
-        }
-
-        function playNextSong() {
-            if (fileQueue.length === 0) return;
-
-            let file = fileQueue.shift();
-            let reader = new FileReader();
-            reader.onload = function(event) {
-                audioContext.decodeAudioData(event.target.result, function(buffer) {
-                    if (source) source.stop();
-                    audioBuffer = buffer;
-                    source = audioContext.createBufferSource();
-                    source.buffer = audioBuffer;
-                    source.connect(analyser);
-                    analyser.connect(audioContext.destination);
-                    source.start(0);
-                    isPlaying = true;
-                    startVisualization();
-                });
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        function stopMusic() {
-            if (source) source.stop();
-            isPlaying = false;
-            fileQueue = [];
-            if (wakeLock) wakeLock.release();
-        }
-
-        // 3D Tunnel Visualization
-        let scene = new THREE.Scene();
-        let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        let renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        let geometry = new THREE.CylinderGeometry(5, 5, 50, 32, 1, true);
-        let material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
-        let tunnel = new THREE.Mesh(geometry, material);
-        scene.add(tunnel);
-
-        camera.position.z = 5;
-
-        function startVisualization() {
-            function animate() {
-                if (!isPlaying) return;
-
-                requestAnimationFrame(animate);
-                tunnel.rotation.z += 0.005;
-
-                // Dynamic illusions (Random effects based on frequency)
-                let dataArray = new Uint8Array(analyser.frequencyBinCount);
-                analyser.getByteFrequencyData(dataArray);
-                let averageFreq = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-
-                tunnel.rotation.y += averageFreq * 0.0001;
-                tunnel.scale.x = tunnel.scale.y = 1 + (averageFreq * 0.002);
-                material.color.setHSL(Math.random(), 1, 0.5);
-
-                renderer.render(scene, camera);
-            }
-            animate();
-        }
+        keepScreenAwake();
 
         window.addEventListener("resize", function() {
             renderer.setSize(window.innerWidth, window.innerHeight);
