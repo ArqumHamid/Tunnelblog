@@ -6,28 +6,36 @@
     <title>Music Tunnel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: black; }
+        body { margin: 0; overflow: hidden; background: black; text-align: center; }
+        #playButton { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 15px 30px; font-size: 20px; background: white; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
+    <button id="playButton">▶️ Play Music</button>
     <script>
         let urlParams = new URLSearchParams(window.location.search);
         let musicUrl = urlParams.get("music");
-        let audio, audioContext, analyser;
+        let audio, audioContext, analyser, source;
 
         function startMusic() {
             if (!musicUrl) return;
             audio = new Audio(musicUrl);
             audio.loop = true;
-            audio.play();
 
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             analyser = audioContext.createAnalyser();
             analyser.fftSize = 256;
-            let source = audioContext.createMediaElementSource(audio);
+            source = audioContext.createMediaElementSource(audio);
             source.connect(analyser);
             analyser.connect(audioContext.destination);
+
+            audio.play();
         }
+
+        document.getElementById("playButton").addEventListener("click", function() {
+            this.style.display = "none"; // Hide button
+            startMusic();
+        });
 
         // 3D Tunnel (Moving Forward Effect)
         let scene = new THREE.Scene();
@@ -75,7 +83,6 @@
             renderer.render(scene, camera);
         }
 
-        startMusic();
         animate();
 
         // Prevent screen from sleeping
