@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Tunnel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        #audio { position: absolute; top: 10px; left: 10px; z-index: 10; background: white; padding: 5px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <input type="file" id="audio" accept="audio/*">
+    <script>
+        let scene, camera, renderer, tunnel, audioContext, analyzer, source, dataArray;
+        let speed = 0.02;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.z = 5;
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            let geometry = new THREE.CylinderGeometry(2, 2, 10, 32, 1, true);
+            let material = new THREE.MeshBasicMaterial({ color: 0x0077ff, wireframe: true, side: THREE.BackSide });
+            tunnel = new THREE.Mesh(geometry, material);
+            tunnel.rotation.x = Math.PI / 2;
+            scene.add(tunnel);
+
+            animate();
+        }
+
+        function setupAudio(file) {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (source) source.stop();
+            
+            let reader = new FileReader();
+            reader.readAsArrayBuffer(file);
+            reader.onload = function(event) {
+                audioContext.decodeAudioData(event.target.result, function(buffer) {
+                    source = audioContext.createBufferSource();
+                    source.buffer = buffer;
+                    analyzer = audioContext.createAnalyser();
+                    analyzer.fftSize = 256;
+                    dataArray = new Uint8Array(analyzer.frequencyBinCount);
+
+                    let gainNode = audioContext.createGain();
+                    source.connect(gainNode);
+                    gainNode.connect(analyzer);
+                    analyzer.connect(audioContext.destination);
+
+                    source.start();
+                    updateSpeed();
+                });
+            };
+        }
+
+        function updateSpeed() {
+            requestAnimationFrame(updateSpeed);
+            analyzer.getByteFrequencyData(dataArray);
+            speed = 0.02 + (dataArray[10] / 255) * 0.1;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            tunnel.position.z += speed;
+            if (tunnel.position.z > 5) tunnel.position.z = 0;
+            renderer.render(scene, camera);
+        }
+
+        document.getElementById('audio').addEventListener('change', function(event) {
+            if (event.target.files.length > 0) setupAudio(event.target.files[0]);
+        });
+
+        init();
+    </script>
+</body>
+</html>
